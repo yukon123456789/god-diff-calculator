@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GOD 設定別差枚シミュレーター</title>
+<style>
+:root{color-scheme:dark;--bg:#0c121b;--panel:#172231;--line:#304157;--text:#edf4fb;--muted:#a8b6c8;--blue:#70bdff;--green:#65dfb0;--red:#ff9d9d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{max-width:720px;margin:auto;padding:22px 15px 40px}h1{font-size:23px}h2{font-size:17px;margin:0 0 12px}.sub,.help,.muted{color:var(--muted)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin:13px 0}
+label{display:block;font-size:13px;margin:0 0 6px;color:#cbd7e5}
+input,textarea{width:100%;background:#0d1723;border:1px solid #3a4c63;border-radius:9px;color:var(--text);padding:12px;font:inherit}
+textarea{min-height:105px}.grid,.results{display:grid;grid-template-columns:1fr 1fr;gap:12px}.help{font-size:12px;margin-top:6px}
+button{width:100%;padding:14px;margin-top:14px;border:0;border-radius:10px;background:var(--blue);color:#061522;font-size:17px;font-weight:800}
+.result{background:#0e1825;border:1px solid var(--line);border-radius:11px;padding:13px}.result h3{font-size:14px;color:var(--muted)}
+.big{font-size:25px;font-weight:800}.pos{color:var(--green)}.neg{color:var(--red)}
+table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}td,th{padding:9px 6px;border-bottom:1px solid var(--line);text-align:right}td:first-child,th:first-child{text-align:left}
+.note{font-size:13px;background:#202b38;border-left:3px solid #ffc978;padding:10px;border-radius:5px}.error{color:var(--red);font-size:14px}.hidden{display:none}
+@media(max-width:500px){.grid{grid-template-columns:1fr}.big{font-size:21px}}
+</style>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0c121b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="GOD差枚計算">
+  <link rel="apple-touch-icon" href="icon-192.png">
+</head>
+<body><main>
+<h1>GOD 設定別・差枚シミュレーター</h1>
+<p class="sub">通常回転数とAT獲得枚数履歴から、設定1・設定6の推定差枚を比較</p>
+<section class="card">
+<h2>① 通常時のデータ</h2>
+<label for="games">データ表示機の通常回転数（G）</label>
+<input id="games" type="number" min="0" step="1" placeholder="例：2500">
+<p class="help">AT中を含まない通常回転数。初当たりまでの共通区間も含めてOK。</p>
+</section>
+<section class="card">
+<h2>② AT獲得枚数の履歴</h2>
+<label for="payouts">各AT終了時に表示されたトータル獲得枚数（枚）</label>
+<textarea id="payouts" placeholder="例：1250&#10;480&#10;3260&#10;720"></textarea>
+<p class="help">1回のATで3連した場合は3回に分けず、画面のトータル獲得枚数を1つ入力。通常に戻って次に当たったATは別の行。</p>
+</section>
+<section class="card">
+<h2>③ 設定別コイン持ち</h2>
+<div class="grid">
+<div><label for="coin1">設定1（G / 50枚）</label><input id="coin1" type="number" value="30.8" min="0.1" step="0.1"></div>
+<div><label for="coin6">設定6（G / 50枚）</label><input id="coin6" type="number" value="34.0" min="0.1" step="0.1"></div>
+</div>
+<button id="calc" type="button">設定1・6の差枚を計算</button>
+<p id="status" class="error" aria-live="polite">回転数とAT獲得枚数を入力して計算してください。</p>
+</section>
+<section class="card hidden" id="output">
+<h2>④ 計算結果</h2>
+<div class="results">
+<div class="result"><h3>設定1の場合</h3><div class="muted">推定IN</div><div class="big" id="in1">--</div><div class="muted">推定OUT</div><div class="big" id="out1">--</div><div class="muted">推定差枚</div><div class="big" id="diff1">--</div></div>
+<div class="result"><h3>設定6の場合</h3><div class="muted">推定IN</div><div class="big" id="in6">--</div><div class="muted">推定OUT</div><div class="big" id="out6">--</div><div class="muted">推定差枚</div><div class="big" id="diff6">--</div></div>
+</div>
+<table><thead><tr><th>比較項目</th><th>設定1</th><th>設定6</th></tr></thead><tbody>
+<tr><td>通常回転数</td><td id="g1">--</td><td id="g6">--</td></tr>
+<tr><td>コイン持ち</td><td id="c1">--</td><td id="c6">--</td></tr>
+<tr><td>AT獲得枚数合計</td><td id="o1">--</td><td id="o6">--</td></tr>
+<tr><td>差枚（OUT − IN）</td><td id="d1">--</td><td id="d6">--</td></tr>
+</tbody></table>
+<p id="gap" class="note"></p>
+</section>
+<section class="card">
+<h2>計算方法</h2>
+<p class="help">設定別IN ＝ 通常回転数 ÷ 設定別コイン持ち × 50枚</p>
+<p class="help">OUT ＝ 入力した各ATのトータル獲得枚数の合計</p>
+<p class="help">推定差枚 ＝ OUT − IN</p>
+<p class="note">通常回転数がAT中を除いた通常時ゲーム数で、獲得枚数履歴が対象期間の全ATを漏れなく含む前提です。AT中の追加投入や通常時の払出しがあれば誤差が出ます。推定差枚は実測値ではありません。</p>
+</section>
+</main>
+<script>
+(function () {
+  function byId(id) { return document.getElementById(id); }
+  function format(n) { return Math.round(n).toLocaleString('ja-JP'); }
+  function signed(n) { return (n > 0 ? '+' : '') + format(n) + ' 枚'; }
+  function setDiff(id, n) {
+    var el = byId(id);
+    el.textContent = signed(n);
+    el.className = 'big ' + (n >= 0 ? 'pos' : 'neg');
+  }
+  byId('calc').addEventListener('click', function () {
+    var status = byId('status');
+    status.textContent = '';
+    byId('output').classList.add('hidden');
+    var gamesText = byId('games').value.trim();
+    var games = Number(gamesText);
+    var coin1 = Number(byId('coin1').value);
+    var coin6 = Number(byId('coin6').value);
+    var raw = byId('payouts').value.trim();
+    var payoutValues = raw ? raw.split(/[\s,，、]+/).filter(function (v) { return v.length > 0; }).map(Number) : [];
+    if (gamesText === '' || !Number.isFinite(games) || games < 0) {
+      status.textContent = '通常回転数を入力してください。';
+      return;
+    }
+    if (!Number.isFinite(coin1) || coin1 <= 0 || !Number.isFinite(coin6) || coin6 <= 0) {
+      status.textContent = '設定1・6のコイン持ちを正しく入力してください。';
+      return;
+    }
+    if (payoutValues.length === 0 || payoutValues.some(function (v) { return !Number.isFinite(v) || v < 0; })) {
+      status.textContent = 'AT獲得枚数を1件以上入力してください。複数件は改行またはカンマで区切れます。';
+      return;
+    }
+    var out = payoutValues.reduce(function (a, b) { return a + b; }, 0);
+    var in1 = games / coin1 * 50;
+    var in6 = games / coin6 * 50;
+    var diff1 = out - in1;
+    var diff6 = out - in6;
+    byId('in1').textContent = format(in1) + ' 枚';
+    byId('in6').textContent = format(in6) + ' 枚';
+    byId('out1').textContent = format(out) + ' 枚';
+    byId('out6').textContent = format(out) + ' 枚';
+    setDiff('diff1', diff1);
+    setDiff('diff6', diff6);
+    byId('g1').textContent = format(games) + ' G';
+    byId('g6').textContent = format(games) + ' G';
+    byId('c1').textContent = coin1.toFixed(1) + ' G / 50枚';
+    byId('c6').textContent = coin6.toFixed(1) + ' G / 50枚';
+    byId('o1').textContent = format(out) + ' 枚';
+    byId('o6').textContent = format(out) + ' 枚';
+    byId('d1').textContent = signed(diff1);
+    byId('d6').textContent = signed(diff6);
+    byId('gap').textContent = '設定6と設定1の推定差枚差：' + signed(diff6 - diff1);
+    byId('output').classList.remove('hidden');
+    status.textContent = '計算しました。入力した通常回転数 ' + format(games) + 'G、AT獲得枚数合計 ' + format(out) + '枚です。';
+  });
+}());
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("./sw.js").catch(function () {});
+  });
+}
+</script>
+</body></html>
